@@ -2845,6 +2845,53 @@ class PSYQApp:
                 summary += f" [{fp_count} hidden as false positive]"
             imgui.text(summary)
             
+            # Count each library object once; shared signatures split their weight.
+            sdk_objects = {}
+            for result in self.scan_results:
+                if result.is_ambiguous or result.is_overlap:
+                    continue
+                if self.scan_binary_fingerprint and self.fp_store.is_false_positive(
+                    self.scan_binary_fingerprint, result.offset,
+                    result.library, result.object_name
+                ):
+                    continue
+                versions = set(result.versions)
+                for version in versions:
+                    key = (version, result.library, result.object_name)
+                    sdk_objects[key] = max(
+                        sdk_objects.get(key, 0), result.sig_length / len(versions)
+                    )
+            sdk_scores = {}
+            for (version, _, _), weight in sdk_objects.items():
+                sdk_scores[version] = sdk_scores.get(version, 0) + weight
+            ranked = sorted(sdk_scores, key=lambda v: (-sdk_scores[v], v))
+            if ranked:
+                leaders = [v for v in ranked if sdk_scores[v] == sdk_scores[ranked[0]]]
+                imgui.text("Likely SDK (estimate): " + (
+                    leaders[0] if len(leaders) == 1 else "inconclusive (tie)"
+                ))
+                if imgui.is_item_hovered():
+                    scores = "\n".join(
+                        f"{version}: {sdk_scores[version]:,.0f} weighted bytes, "
+                        f"{sum(1 for key in sdk_objects if key[0] == version)} objects"
+                        for version in ranked
+                    )
+                    imgui.set_tooltip(
+                        "The highest score is the best-supported candidate in this scan.\n"
+                        + scores + "\n\n"
+                        "Score = signature length divided by the number of matching SDKs.\n"
+                        "Longer, more version-specific signatures carry more weight.\n"
+                        "Each library object counts once, even at multiple addresses.\n"
+                        "Ambiguous, overlapping and marked false-positive matches are excluded.\n"
+                        "Scores are not probabilities; close scores mean weak separation.\n"
+                        "Only scanned SDKs are compared. Games may mix SDK libraries."
+                    )
+                alternatives = ranked[1:] if len(leaders) == 1 else ranked
+                if alternatives:
+                    imgui.text_wrapped("Possible matches: " + ", ".join(alternatives))
+            else:
+                imgui.text("Likely SDK: inconclusive (no usable matches)")
+
             # Filter row
             imgui.text("Filter:")
             imgui.same_line()
