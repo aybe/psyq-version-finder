@@ -1918,6 +1918,7 @@ class PSYQApp:
         
         # Persistent configuration (loads from cache)
         self.config = PersistentConfig()
+        self.column_layouts = set()
         
         # UI State
         self.versions: list[str] = []
@@ -2941,12 +2942,7 @@ class PSYQApp:
             imgui.begin_child("scan_results", 0, 0, border=True)
             
             # Header
-            imgui.columns(6, "scan_columns")
-            imgui.set_column_width(0, 35)   # Action
-            imgui.set_column_width(1, 90)   # Offset
-            imgui.set_column_width(2, 130)  # Library
-            imgui.set_column_width(3, 140)  # Object
-            imgui.set_column_width(4, 80)   # Size
+            self.begin_columns(6, "scan_columns", (35, 90, 130, 140, 80))
             imgui.text("")
             imgui.next_column()
             imgui.text("Offset")
@@ -2957,7 +2953,7 @@ class PSYQApp:
             imgui.next_column()
             imgui.text("Size")
             imgui.next_column()
-            imgui.text("SDK Versions (Functions)")
+            imgui.text_wrapped("SDK Versions (Functions)")
             imgui.columns(1)
             imgui.separator()
             
@@ -2978,12 +2974,7 @@ class PSYQApp:
                     display_versions = result.versions
                     display_size = result.sig_length
                 
-                imgui.columns(6, row_id)
-                imgui.set_column_width(0, 35)
-                imgui.set_column_width(1, 90)
-                imgui.set_column_width(2, 130)
-                imgui.set_column_width(3, 140)
-                imgui.set_column_width(4, 80)
+                self.begin_columns(6, "scan_columns", (35, 90, 130, 140, 80))
                 
                 # Action column: FP toggle button
                 if is_fp:
@@ -3146,13 +3137,7 @@ class PSYQApp:
         imgui.begin_child(f"section_list_{section}", 0, 350, border=True)
         
         # Header
-        imgui.columns(7, f"sec_cols_{section}")
-        imgui.set_column_width(0, 50)   # Move
-        imgui.set_column_width(1, 100)  # Library
-        imgui.set_column_width(2, 100)  # Object
-        imgui.set_column_width(3, 60)   # Size
-        imgui.set_column_width(4, 90)   # Offset
-        imgui.set_column_width(5, 60)   # Match%
+        self.begin_columns(7, f"sec_cols_{section}", (50, 100, 100, 60, 90, 60))
         imgui.text("Move")
         imgui.next_column()
         imgui.text("Library")
@@ -3172,13 +3157,7 @@ class PSYQApp:
         for idx, entry in enumerate(section_list):
             row_id = f"{section}_{idx}_{entry['library']}_{entry['object']}"
             
-            imgui.columns(7, row_id)
-            imgui.set_column_width(0, 50)
-            imgui.set_column_width(1, 100)
-            imgui.set_column_width(2, 100)
-            imgui.set_column_width(3, 60)
-            imgui.set_column_width(4, 90)
-            imgui.set_column_width(5, 60)
+            self.begin_columns(7, f"sec_cols_{section}", (50, 100, 100, 60, 90, 60))
             
             # Move buttons - use ^ and v to conserve space
             if idx > 0:
@@ -3872,13 +3851,7 @@ class PSYQApp:
                 imgui.begin_child("enrich_preview", 0, 200, border=True)
                 
                 # Header
-                imgui.columns(6, "enrich_cols")
-                imgui.set_column_width(0, 120)  # Library
-                imgui.set_column_width(1, 120)  # Object
-                imgui.set_column_width(2, 70)   # .text
-                imgui.set_column_width(3, 70)   # .data
-                imgui.set_column_width(4, 70)   # .rdata
-                imgui.set_column_width(5, 70)   # .bss
+                self.begin_columns(6, "enrich_cols", (120, 120, 70, 70, 70, 70))
                 imgui.text("Library")
                 imgui.next_column()
                 imgui.text("Object")
@@ -3896,13 +3869,7 @@ class PSYQApp:
                 # Data rows
                 for (lib, obj), info in sorted(self.enrich_data.items()):
                     sizes = info.get("section_sizes", {})
-                    imgui.columns(6, f"enrich_{lib}_{obj}")
-                    imgui.set_column_width(0, 120)
-                    imgui.set_column_width(1, 120)
-                    imgui.set_column_width(2, 70)
-                    imgui.set_column_width(3, 70)
-                    imgui.set_column_width(4, 70)
-                    imgui.set_column_width(5, 70)
+                    self.begin_columns(6, "enrich_cols", (120, 120, 70, 70, 70, 70))
                     
                     imgui.text(lib if lib else "(loose)")
                     imgui.next_column()
@@ -5802,8 +5769,7 @@ class PSYQApp:
         
         if imgui.collapsing_header(f"Functions ({len(real_labels)})##funcs", imgui.TREE_NODE_DEFAULT_OPEN)[0]:
             if real_labels:
-                imgui.columns(2, "label_cols")
-                imgui.set_column_width(0, 250)
+                self.begin_columns(2, "label_cols", (250,))
                 imgui.text_colored("Name", 0.7, 0.7, 0.7, 1.0)
                 imgui.next_column()
                 imgui.text_colored("Offset", 0.7, 0.7, 0.7, 1.0)
@@ -5811,8 +5777,7 @@ class PSYQApp:
                 imgui.separator()
                 
                 for lbl in real_labels:
-                    imgui.columns(2, f"lbl_{lbl.name}")
-                    imgui.set_column_width(0, 250)
+                    self.begin_columns(2, "label_cols", (250,))
                     imgui.text_colored(lbl.name, 0.5, 0.9, 1.0, 1.0)
                     imgui.next_column()
                     imgui.text(f"0x{lbl.offset:X}")
@@ -5996,8 +5961,7 @@ class PSYQApp:
         imgui.separator()
         
         # Two-column layout
-        imgui.columns(2, "sym_browser_cols")
-        imgui.set_column_width(0, 400)
+        self.begin_columns(2, "sym_browser_cols", (400,))
         
         # Left column: Symbol lookup
         imgui.text_colored("Symbol Lookup", 0.4, 0.8, 1.0, 1.0)
@@ -6264,12 +6228,7 @@ class PSYQApp:
             imgui.begin_child("verify_results", 0, 0, border=True)
             
             # Header
-            imgui.columns(6, "verify_cols")
-            imgui.set_column_width(0, 90)   # Offset
-            imgui.set_column_width(1, 100)  # Library
-            imgui.set_column_width(2, 100)  # Object
-            imgui.set_column_width(3, 60)   # Section
-            imgui.set_column_width(4, 60)   # Match%
+            self.begin_columns(6, "verify_cols", (90, 100, 100, 60, 60))
             imgui.text("Offset")
             imgui.next_column()
             imgui.text("Library")
@@ -6287,12 +6246,7 @@ class PSYQApp:
             for result in self.verify_results:
                 row_id = f"vfy_{result['offset']}_{result['object']}"
                 
-                imgui.columns(6, row_id)
-                imgui.set_column_width(0, 90)
-                imgui.set_column_width(1, 100)
-                imgui.set_column_width(2, 100)
-                imgui.set_column_width(3, 60)
-                imgui.set_column_width(4, 60)
+                self.begin_columns(6, "verify_cols", (90, 100, 100, 60, 60))
                 
                 # Offset
                 if result.get("error"):
@@ -6550,6 +6504,15 @@ class PSYQApp:
         if imgui.button("Refresh Versions", width=120):
             self._init_versions()
     
+    def begin_columns(self, count, name, widths):
+        """Share column widths across rows and allow dragging the dividers."""
+        imgui.columns(count, name)
+        key = (name, imgui.get_font_size())
+        if key not in self.column_layouts:
+            for index, width in enumerate(widths):
+                imgui.set_column_width(index, width * imgui.get_font_size() / 16)
+            self.column_layouts.add(key)
+
     def render(self):
         """Render the main application UI."""
         # Main window
