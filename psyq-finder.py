@@ -2925,20 +2925,18 @@ class PSYQApp:
             overlap_count = sum(1 for f in filtered if f[0].is_overlap)
             
             imgui.text(f"Showing {len(filtered)} lines ({len(self.scan_results)} objects)")
-            if ambiguous_lines > 0:
+            if imgui.small_button("Reset filter"):
+                self.scan_filter_text = ""
+            for label, keyword, count, color in (
+                ("Ambiguous", "ambiguous", ambiguous_lines, (1.0, 0.9, 0.3, 1.0)),
+                ("Duplicates", "duplicate", duplicate_count, (1.0, 0.6, 0.3, 1.0)),
+                ("Overlaps", "overlap", overlap_count, (0.9, 0.4, 0.9, 1.0)),
+            ):
                 imgui.same_line()
-                imgui.text_colored(f"[{ambiguous_lines} ambiguous]", 1.0, 0.9, 0.3, 1.0)
-            if duplicate_count > 0:
-                imgui.same_line()
-                imgui.text_colored(f"[{duplicate_count} duplicates]", 1.0, 0.6, 0.3, 1.0)
-            if overlap_count > 0:
-                imgui.same_line()
-                imgui.text_colored(f"[{overlap_count} overlaps]", 0.9, 0.4, 0.9, 1.0)
-            imgui.same_line()
-            imgui.text_colored(
-                "(filter: 'ambiguous', 'duplicate', 'overlap', 'false positive')",
-                0.5, 0.5, 0.5, 1.0
-            )
+                imgui.push_style_color(imgui.COLOR_TEXT, *color)
+                if imgui.small_button(f"{label} ({count})"):
+                    self.scan_filter_text = keyword
+                imgui.pop_style_color()
             
             imgui.begin_child("scan_results", 0, 0, border=True)
             
