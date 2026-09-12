@@ -6622,6 +6622,43 @@ class PSYQApp:
         return True
 
 
+
+def update_display_scale(window, renderer, previous_scale, base_style, font_size):
+    """Match font rasterization and UI spacing to the current monitor."""
+    width, height = glfw.get_window_size(window)
+    fb_width, fb_height = glfw.get_framebuffer_size(window)
+    if width <= 0 or height <= 0 or fb_width <= 0 or fb_height <= 0:
+        return previous_scale
+    content_scale = max(glfw.get_window_content_scale(window))
+    framebuffer_scale = max(fb_width / width, fb_height / height)
+    scale = (round(content_scale, 3), round(framebuffer_scale, 3), font_size)
+    if scale == previous_scale:
+        return previous_scale
+
+    io = imgui.get_io()
+    io.fonts.clear()
+    font_paths = (
+        Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts/segoeui.ttf",
+        Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    )
+    font_path = next((path for path in font_paths if path.is_file()), None)
+    if font_path:
+        io.fonts.add_font_from_file_ttf(str(font_path), font_size * content_scale)
+        io.font_global_scale = 1 / framebuffer_scale
+    else:
+        io.fonts.add_font_default()
+        io.font_global_scale = (font_size / 13) * content_scale / framebuffer_scale
+    renderer.refresh_font_texture()
+
+    logical_scale = content_scale / framebuffer_scale
+    style = imgui.get_style()
+    for name, value in base_style.items():
+        setattr(style, name, tuple(v * logical_scale for v in value)
+                if isinstance(value, tuple) else value * logical_scale)
+    return scale
+
+
 def main():
     """Main entry point."""
     # Initialize GLFW
@@ -6629,7 +6666,9 @@ def main():
         print("Failed to initialize GLFW")
         sys.exit(1)
 
-    # Create window
+    # The OS window is resizable; ImGui fills its client area.
+    glfw.window_hint(glfw.RESIZABLE, glfw.TRUE)
+    glfw.window_hint(glfw.SCALE_TO_MONITOR, glfw.TRUE)
     glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
     glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
     glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
@@ -6641,12 +6680,22 @@ def main():
         print("Failed to create window")
         sys.exit(1)
 
+    glfw.set_window_size_limits(window, 640, 480, glfw.DONT_CARE, glfw.DONT_CARE)
     glfw.make_context_current(window)
     glfw.swap_interval(1)  # Enable vsync
 
     # Initialize ImGui
     imgui.create_context()
     impl = GlfwRenderer(window)
+    style = imgui.get_style()
+    base_style = {
+        name: tuple(getattr(style, name))
+        for name in ("window_padding", "frame_padding", "item_spacing",
+                     "item_inner_spacing", "cell_padding")
+    }
+    base_style.update({name: getattr(style, name)
+                       for name in ("indent_spacing", "scrollbar_size", "grab_min_size")})
+    display_scale = None
 
     # Create application
     app = PSYQApp()
@@ -6655,12 +6704,16 @@ def main():
     while not glfw.window_should_close(window):
         glfw.poll_events()
         impl.process_inputs()
+        display_scale = update_display_scale(window, impl, display_scale, base_style, 16)
+        if min(glfw.get_framebuffer_size(window)) == 0:
+            glfw.wait_events_timeout(0.1)
+            continue
 
         imgui.new_frame()
 
         # --- Root fullscreen "app surface" (no floating window chrome) ---
         # Match ImGui to the current GLFW window size every frame
-        w, h = glfw.get_framebuffer_size(window)  # framebuffer is safest for GL
+        w, h = glfw.get_window_size(window)  # Same coordinates as input/display_size
         imgui.set_next_window_position(0.0, 0.0)
         imgui.set_next_window_size(float(w), float(h))
 
