@@ -1918,6 +1918,7 @@ class PSYQApp:
         
         # Persistent configuration (loads from cache)
         self.config = PersistentConfig()
+        self.font_size = self.config.get("font_size", 16)
         self.column_layouts = set()
         
         # UI State
@@ -6513,6 +6514,14 @@ class PSYQApp:
                 imgui.set_column_width(index, width * imgui.get_font_size() / 16)
             self.column_layouts.add(key)
 
+    def render_setup_tab(self):
+        imgui.set_next_item_width(240)
+        changed, size = imgui.slider_int("Global font size", self.font_size, 12, 32)
+        if changed:
+            self.font_size = size
+            self.config.set("font_size", size)
+        imgui.text("Applies to every tab and is saved automatically.")
+
     def render(self):
         """Render the main application UI."""
         # Main window
@@ -6576,6 +6585,10 @@ class PSYQApp:
                 self.render_cache_tab()
                 imgui.end_tab_item()
             
+            if imgui.begin_tab_item("Setup")[0]:
+                self.render_setup_tab()
+                imgui.end_tab_item()
+
             imgui.end_tab_bar()
         
         # Status bar
@@ -6667,7 +6680,7 @@ def main():
     while not glfw.window_should_close(window):
         glfw.poll_events()
         impl.process_inputs()
-        display_scale = update_display_scale(window, impl, display_scale, base_style, 16)
+        display_scale = update_display_scale(window, impl, display_scale, base_style, app.font_size)
         if min(glfw.get_framebuffer_size(window)) == 0:
             glfw.wait_events_timeout(0.1)
             continue
